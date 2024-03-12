@@ -3,10 +3,24 @@ package main
 import (
 	"log"
 	"os/exec"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/olahol/melody"
 )
+
+var (
+	lastSignalTime sync.Map        // To track the last time signals were received for different actions
+	keyHeld        map[string]bool // Tracks whether a key is currently being held down
+	keyHeldMutex   sync.Mutex      // Mutex for safe access to keyHeld
+)
+
+func init() {
+	keyHeld = make(map[string]bool)
+}
 
 func main() {
 	r := gin.Default()
@@ -17,19 +31,70 @@ func main() {
 	})
 
 	m.HandleMessage(func(s *melody.Session, msg []byte) {
-		// Echo the message back to the client
-		m.Broadcast(msg)
-		log.Println(string(msg))
+		// Process the message
+		processMessage(string(msg))
+	})
 
-		// Check if the message is "96"
-		if string(msg) == "96" {
-			// Use xdotool to simulate pressing the space key
-			err := exec.Command("xdotool", "key", "space").Run()
-			if err != nil {
-				log.Printf("Error executing xdotool: %v", err)
+	log.Println("starting server on 8089")
+
+	go monitorSignalsAndAct()
+
+	r.Run("0.0.0.0:8089")
+}
+
+func processMessage(message string) {
+	if message == "96" {
+		lastSignalTime.Store("space", time.Now())
+		ensureKeyHeld("space")
+	} else if strings.Contains(message, "Joystick Move") {
+		// Parse the X and Y values from the message for "D"
+		splits := strings.Split(message, ",")
+		if len(splits) == 2 {
+			xPart := strings.TrimSpace(strings.Split(splits[0], "X:")[1])
+			xValue, err := strconv.ParseFloat(xPart, 64)
+			if err == nil && xValue > 0.1 {
+				lastSignalTime.Store("D", time.Now())
+				ensureKeyHeld("D")
+			} else if err == nil && xValue < 0.1 {
+				lastSignalTime.Store("A", time.Now())
+				ensureKeyHeld("A")
 			}
 		}
-	})
-	log.Println("starting server on 8089")
-	r.Run("0.0.0.0:8089")
+	}
+}
+
+func monitorSignalsAndAct() {
+	for {
+		now := time.Now()
+		lastSignalTime.Range(func(key, value interface{}) bool {
+			action := key.(string)
+			lastTime := value.(time.Time)
+			if now.Sub(lastTime) > 300*time.Millisecond {
+				if keyReleased(action) {
+					exec.Command("xdotool", "keyup", action).Run()
+				}
+			}
+			return true // continue ranging
+		})
+		time.Sleep(20 * time.Millisecond) // Adjust as needed
+	}
+}
+
+func ensureKeyHeld(key string) {
+	keyHeldMutex.Lock()
+	defer keyHeldMutex.Unlock()
+	if !keyHeld[key] {
+		exec.Command("xdotool", "keydown", key).Run()
+		keyHeld[key] = true
+	}
+}
+
+func keyReleased(key string) bool {
+	keyHeldMutex.Lock()
+	defer keyHeldMutex.Unlock()
+	if keyHeld[key] {
+		delete(keyHeld, key)
+		return true
+	}
+	return false
 }
