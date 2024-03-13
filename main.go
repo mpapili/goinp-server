@@ -19,6 +19,10 @@ var (
 	keyHeldMutex   sync.Mutex      // Mutex for safe access to keyHeld
 )
 
+const (
+	deadZoneThreshold = 0.4
+)
+
 func init() {
 	keyHeld = make(map[string]bool)
 }
@@ -90,28 +94,28 @@ func processMessage(message string) {
 			log.Println(xValue, yValue)
 			// move left or right?
 			switch {
-			case xValue > 0.125:
+			case xValue > deadZoneThreshold:
 				holdKey("D")
-			case xValue <= 0.125:
+			case xValue <= deadZoneThreshold:
 				releaseKey("D")
 			}
 			switch {
-			case xValue < -0.125:
+			case xValue < -1*deadZoneThreshold:
 				holdKey("A")
-			case xValue >= -0.1:
+			case xValue >= -1*deadZoneThreshold:
 				releaseKey("A")
 			}
 			// move up or down?
 			switch {
-			case yValue > 0.125:
+			case yValue > deadZoneThreshold:
 				holdKey("S")
-			case yValue <= 0.125:
+			case yValue <= deadZoneThreshold:
 				releaseKey("S")
 			}
 			switch {
-			case yValue < -0.125:
+			case yValue < -1*deadZoneThreshold:
 				holdKey("W")
-			case yValue >= -0.125:
+			case yValue >= -1*deadZoneThreshold:
 				releaseKey("W")
 			}
 		}
