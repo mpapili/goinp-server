@@ -43,10 +43,14 @@ func main() {
 }
 
 func processMessage(message string) {
-	if message == "96" {
-		lastSignalTime.Store("space", time.Now())
-		ensureKeyHeld("space")
-	} else if strings.Contains(message, "Joystick Move") {
+	log.Println(message)
+	switch message {
+	case "96 down":
+		holdKey("space")
+	case "96 up":
+		releaseKey("space")
+	}
+	if strings.Contains(message, "Joystick Move") {
 		// Parse the X and Y values from the message for "D"
 		splits := strings.Split(message, ",")
 		if len(splits) == 2 {
@@ -86,6 +90,30 @@ func ensureKeyHeld(key string) {
 	if !keyHeld[key] {
 		exec.Command("xdotool", "keydown", key).Run()
 		keyHeld[key] = true
+	}
+}
+
+func holdKey(key string) {
+	keyHeldMutex.Lock()
+	defer keyHeldMutex.Unlock()
+	out, err := exec.Command("xdotool", "keydown", key).CombinedOutput()
+	if err != nil {
+		log.Printf("error releasing %s key : %v : %s", key, err, out)
+	}
+	if !keyHeld[key] {
+		keyHeld[key] = true
+	}
+}
+
+func releaseKey(key string) {
+	keyHeldMutex.Lock()
+	defer keyHeldMutex.Unlock()
+	out, err := exec.Command("xdotool", "keyup", key).CombinedOutput()
+	if err != nil {
+		log.Printf("error releasing %s key : %v : %s", key, err, out)
+	}
+	if _, ok := keyHeld[key]; ok {
+		delete(keyHeld, key)
 	}
 }
 
