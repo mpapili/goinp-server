@@ -7,25 +7,21 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/olahol/melody"
 )
 
 var (
-	lastSignalTime sync.Map        // To track the last time signals were received for different actions
-	keyHeld        map[string]bool // Tracks whether a key is currently being held down
-	keyHeldMutex   sync.Mutex      // Mutex for safe access to keyHeld
+	semaphore = make(chan struct{}, maxGoRoutines)
 )
 
 const (
 	deadZoneThreshold = 0.4
+	maxGoRoutines     = 8
 )
 
-func init() {
-	keyHeld = make(map[string]bool)
-}
+func init() {}
 
 func main() {
 	display, exists := os.LookupEnv("DISPLAY")
@@ -122,50 +118,29 @@ func processMessage(message string) {
 	}
 }
 
+func runXdoTool(keyAction string, key string) {
+	go func(keyAction string, key string) {
+		semaphore <- struct{}{}
+		out, err := exec.Command("xdotool", keyAction, key).CombinedOutput()
+		if err != nil {
+			log.Printf("error performing %s %s : %v : %v", keyAction, key, err, out)
+		}
+		<-semaphore
+	}(keyAction, key)
+}
+
 func holdKey(key string) {
-	keyHeldMutex.Lock()
-	defer keyHeldMutex.Unlock()
-	out, err := exec.Command("xdotool", "keydown", key).CombinedOutput()
-	if err != nil {
-		log.Printf("error holding %s key : %v : %s", key, err, out)
-	}
-	if !keyHeld[key] {
-		keyHeld[key] = true
-	}
+	runXdoTool("keydown", key)
 }
 
 func releaseKey(key string) {
-	keyHeldMutex.Lock()
-	defer keyHeldMutex.Unlock()
-	out, err := exec.Command("xdotool", "keyup", key).CombinedOutput()
-	if err != nil {
-		log.Printf("error releasing %s key : %v : %s", key, err, out)
-	}
-	if _, ok := keyHeld[key]; ok {
-		delete(keyHeld, key)
-	}
+	runXdoTool("keyup", key)
 }
 
 func holdMouse(key string) {
-	keyHeldMutex.Lock()
-	defer keyHeldMutex.Unlock()
-	out, err := exec.Command("xdotool", "mousedown", key).CombinedOutput()
-	if err != nil {
-		log.Printf("error releasing %s key : %v : %s", key, err, out)
-	}
-	if _, ok := keyHeld[key]; ok {
-		delete(keyHeld, key)
-	}
+	runXdoTool("mousedown", key)
 }
 
 func releaseMouse(key string) {
-	keyHeldMutex.Lock()
-	defer keyHeldMutex.Unlock()
-	out, err := exec.Command("xdotool", "mouseup", key).CombinedOutput()
-	if err != nil {
-		log.Printf("error releasing %s key : %v : %s", key, err, out)
-	}
-	if _, ok := keyHeld[key]; ok {
-		delete(keyHeld, key)
-	}
+	runXdoTool("mouseup", key)
 }
