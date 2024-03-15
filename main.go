@@ -51,15 +51,15 @@ func main() {
 			time.Sleep(mousePollingRate * time.Millisecond)
 			// vertical
 			if mouseUp {
-				moveMouse("0", "-15")
+				moveMouse("0", "-30")
 			} else if mouseDown {
-				moveMouse("0", "15")
+				moveMouse("0", "30")
 			}
 			// horizontal
 			if mouseLeft {
-				moveMouse("-15", "0")
+				moveMouse("-30", "0")
 			} else if mouseRight {
-				moveMouse("15", "0")
+				moveMouse("30", "0")
 			}
 		}
 	}()
