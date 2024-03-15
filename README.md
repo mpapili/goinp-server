@@ -8,3 +8,9 @@ https://github.com/mpapili/termux-x11/
 ```
 pkg install golang xdotool openssh git mobox
 ```
+
+### Usage:
+```
+export DISPLAY=:0   #  or whatever your mobox display port is
+go run main.go
+```
