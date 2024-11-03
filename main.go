@@ -31,11 +31,9 @@ const (
 func main() {
 	display, exists := os.LookupEnv("DISPLAY")
 	if !exists || display == "" {
-		fmt.Println("The DISPLAY variable is not set or is nil. (Default mobox sets it to :0)")
-		os.Exit(1)
-	} else {
-		fmt.Println("The DISPLAY variable is set to:", display)
+		panic("the $DISPLAY variable is not set (default mobox sets to :0")
 	}
+	log.Printf("The DISPLAY variable is set to: %s", display)
 	r := gin.Default()
 	m := melody.New()
 
@@ -43,7 +41,7 @@ func main() {
 		m.HandleRequest(c.Writer, c.Request)
 	})
 
-	m.HandleMessage(func(s *melody.Session, msg []byte) {
+	m.HandleMessage(func(_ *melody.Session, msg []byte) {
 		// Process the message
 		processMessage(string(msg))
 	})
@@ -54,16 +52,16 @@ func main() {
 		for {
 			time.Sleep(mousePollingRate * time.Millisecond)
 			// vertical
-			if mouseUp == true {
-				moveMouse("0", "-15")
-			} else if mouseDown == true {
-				moveMouse("0", "15")
+			if mouseUp {
+				moveMouse("0", "-30")
+			} else if mouseDown {
+				moveMouse("0", "30")
 			}
 			// horizontal
-			if mouseLeft == true {
-				moveMouse("-15", "0")
-			} else if mouseRight == true {
-				moveMouse("15", "0")
+			if mouseLeft {
+				moveMouse("-30", "0")
+			} else if mouseRight {
+				moveMouse("30", "0")
 			}
 			counter += 1
 			if counter > 20 && resetMouse == true {
@@ -74,7 +72,10 @@ func main() {
 	}()
 
 	log.Println("starting server on 8089")
-	r.Run("0.0.0.0:8089")
+	err := r.Run("0.0.0.0:8089")
+	if err != nil {
+		panic(fmt.Errorf("error occurred starting websocket server : %w", err))
+	}
 }
 
 func processMessage(message string) {
@@ -173,28 +174,27 @@ func processMessage(message string) {
 				log.Printf("error parsing joystick Y value for %s : %v", yPart, err)
 				return
 			}
-			log.Println(xValue, yValue)
 			// move left or right?
-			if xValue > deadZoneThreshold {
+			switch {
+			case xValue > deadZoneThreshold:
 				mouseRight = true
 				mouseLeft = false
-			} else if xValue < -1*deadZoneThreshold {
+			case xValue < (-1 * deadZoneThreshold):
 				mouseLeft = true
 				mouseRight = false
-			} else {
+			default:
 				mouseLeft = false
 				mouseRight = false
 			}
 			// move up or down?
-			if yValue < -1*deadZoneThreshold {
+			switch {
+			case yValue < -1*deadZoneThreshold:
 				mouseUp = true
 				mouseDown = false
-				// moveMouse("0", "-10") // move mouse up
-			} else if yValue >= deadZoneThreshold {
+			case yValue >= deadZoneThreshold:
 				mouseDown = true
 				mouseUp = false
-				// moveMouse("0", "10") // move mouse down
-			} else {
+			default:
 				mouseDown = false
 				mouseUp = false
 			}
@@ -223,7 +223,6 @@ func runXdoToolMouse(x string, y string) {
 		}
 		<-semaphore
 	}(x, y)
-
 }
 
 // TODO - nearly identical; find a better way to split args.. []... this is being lazy
