@@ -19,11 +19,12 @@ var (
 	mouseDown  = false
 	mouseLeft  = false
 	mouseRight = false
+	resetMouse = false
 )
 
 const (
 	deadZoneThreshold = 0.4
-	maxGoRoutines     = 8
+	maxGoRoutines     = 4 
 	mousePollingRate  = 50 // milliseconds
 )
 
@@ -49,6 +50,7 @@ func main() {
 
 	// Start mouse-handler thread
 	go func() {
+		counter := 0
 		for {
 			time.Sleep(mousePollingRate * time.Millisecond)
 			// vertical
@@ -62,6 +64,11 @@ func main() {
 				moveMouse("-15", "0")
 			} else if mouseRight == true {
 				moveMouse("15", "0")
+			}
+			counter += 1
+			if counter > 20 && resetMouse == true {
+				counter = 0
+				resetMouseCenter()
 			}
 		}
 	}()
@@ -94,6 +101,12 @@ func processMessage(message string) {
 		holdKey("F")
 	case "102 up":
 		releaseKey("F")
+	case "107 down": // Right-Trigger-Click / R3
+		if resetMouse == true {
+			resetMouse = false
+		} else {
+			resetMouse = true
+		}
 	}
 
 	// Joystick Handling Logic
@@ -210,6 +223,19 @@ func runXdoToolMouse(x string, y string) {
 		}
 		<-semaphore
 	}(x, y)
+
+}
+
+// TODO - nearly identical; find a better way to split args.. []... this is being lazy
+func resetMouseCenter() {
+	go func() {
+		semaphore <- struct{}{}
+		out, err := exec.Command("xdotool", "mousemove", "150", "150").CombinedOutput()
+		if err != nil {
+			log.Printf("error reseting mouse position : %v : %s", err, out)
+		}
+		<-semaphore
+	}()
 
 }
 

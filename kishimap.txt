@@ -1,0 +1,14 @@
+For my own sake
+
+96 = a
+97 = b
+99 = x
+100 = y
+
+102 = Left-Bumper
+103 = Right-Bumper
+104 = Left-Trigger
+105 = Right-Trigger
+
+107 = right-trigger-click (hmmmm)
+108 = start
